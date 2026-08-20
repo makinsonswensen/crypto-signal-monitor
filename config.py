@@ -19,6 +19,7 @@ WATCHLIST = [
     'SKHYB/USDT',    # SK海力士（股票代币）
     'XAUT/USDT',     # Tether黄金
     'MUB/USDT',      # 美光科技（股票代币）
+    'HYPE/USDT',     # HYPE
 ]
 
 # 获取多少根K线用于形态识别
@@ -65,8 +66,16 @@ ENABLED_TIMEFRAMES = [tf for tf, cfg in TIMEFRAME_CONFIGS.items() if cfg.get('en
 # 支持的交易所ID（ccxt标准）: binance, gateio, okx, huobi, bybit, kucoin 等
 EXCHANGE_LIST = [
     {
+        'id': 'binanceusdm',    # 交易所ID（币安U本位永续合约）
+        'name': '币安合约',      # 显示名称
+        'api_key': os.getenv('BINANCE_API_KEY', ''),
+        'api_secret': os.getenv('BINANCE_API_SECRET', ''),
+        'timeout': 10000,          # 超时时间（毫秒）
+        'enableRateLimit': True,   # 启用速率限制
+    },
+    {
         'id': 'binance',         # 交易所ID（币安现货）
-        'name': '币安',           # 显示名称
+        'name': '币安现货',       # 显示名称
         'api_key': os.getenv('BINANCE_API_KEY', ''),
         'api_secret': os.getenv('BINANCE_API_SECRET', ''),
         'timeout': 10000,          # 超时时间（毫秒）
@@ -89,10 +98,17 @@ EXCHANGE_RETRY_COUNT = 2
 EXCHANGE_RETRY_INTERVAL = 1
 
 # 交易对映射（不同交易所的交易对名称可能不同）
-# 如果某个交易对在某个交易所的名称不同，在这里配置
-# 例如：{'binance': {'BTC/USDT': 'BTC/USDT'}, 'gateio': {'BTC/USDT': 'BTC_USDT'}}
-# 留空表示使用标准格式
-SYMBOL_MAPPING = {}
+# key: 交易所ID，value: {监控名称: 交易所实际名称}
+SYMBOL_MAPPING = {
+    'binanceusdm': {
+        # 股票代币合约：现货带B后缀，合约不带B
+        'SNDKB/USDT': 'SNDK/USDT',
+        'SKHYB/USDT': 'SKHYNIX/USDT',
+        'MUB/USDT': 'MU/USDT',
+        # 黄金现货是XAUT，合约也叫XAUT
+        # 'XAUT/USDT': 'XAUT/USDT',
+    },
+}
 
 # ==================== 形态识别配置 ====================
 # 启用的形态列表
@@ -117,7 +133,31 @@ SMALL_BODY_RATIO = 0.35
 LONG_WICK_RATIO = 2.0
 
 # 吞没形态力度倍数（第二根实体 / 第一根实体）
-ENGULFING_STRENGTH_RATIO = 1.2
+ENGULFING_STRENGTH_RATIO = 1.1
+
+# ==================== 进阶过滤配置（吞没形态专用）====================
+# 基于 Gemini 优化版，引入趋势过滤和波动率过滤
+
+# EMA 趋势均线周期
+ENGULFING_EMA_PERIOD = 20
+
+# 当前K线实体 / ATR 的最小倍数（反转K线必须有力度）
+ENGULFING_CURR_BODY_ATR_RATIO = 0.8
+
+# 开盘容忍比例（加密市场无跳空，允许微小偏差，0.005 = 0.5%）
+ENGULFING_OPEN_TOLERANCE = 0.005
+
+# ==================== 进阶过滤配置（锤子线 / 流星线专用）====================
+# 新增 EMA20 趋势过滤和 ATR 波动率过滤，大幅降低震荡市假信号
+
+# EMA 趋势均线周期
+HAMMER_SHOOTINGSTAR_EMA_PERIOD = 20
+
+# 实体 / ATR 的最大比例（小实体绝对判定：实体必须很小）
+HAMMER_SHOOTINGSTAR_BODY_ATR_MAX_RATIO = 0.3
+
+# 长影线 / ATR 的最小比例（影线必须有力度，不是小打小闹）
+HAMMER_SHOOTINGSTAR_WICK_ATR_RATIO = 1.0
 
 # 长实体判定（相对近期平均实体的倍数，用于晨星/暮星的第一根）
 LONG_BODY_RATIO = 1.5
@@ -127,6 +167,45 @@ STAR_REVERSAL_RATIO = 2.0
 
 # 短期高低点判断窗口（用于锤子线/流星线的位置确认，K线根数）
 SWING_LOOKBACK = 5
+
+# ==================== 进阶过滤配置（乌云盖顶 / 刺透形态专用） ====================
+# 基于 Gemini 优化版，引入趋势过滤和波动率过滤，大幅降低噪音
+
+# ATR 周期（平均真实波幅，用于衡量波动率）
+ATR_PERIOD = 14
+
+# EMA 趋势均线周期（用于判断当前趋势方向）
+PIERCING_DARKCLOUD_EMA_PERIOD = 20
+
+# 大K线过滤器 - 前一根K线实体 / ATR 的最小倍数（过滤震荡市十字星）
+# 前一根必须是强有力的大K线，才有反转意义
+PIERCING_DARKCLOUD_PREV_BODY_ATR_RATIO = 1.2
+
+# 大K线过滤器 - 当前K线实体 / ATR 的最小倍数
+# 当前K线也要有足够力度，不能是小打小闹
+PIERCING_DARKCLOUD_CURR_BODY_ATR_RATIO = 0.8
+
+# ==================== 进阶过滤配置（早晨之星 / 黄昏之星专用） ====================
+# 基于 Gemini 优化版 + 当前版优势合并，引入趋势过滤、ATR动态衡量、动量衰竭确认
+
+# EMA 趋势均线周期（用于判断当前趋势方向）
+STAR_PATTERN_EMA_PERIOD = 20
+
+# 第一根K线实体 / ATR 的最小倍数（趋势确立：必须是大K线）
+STAR_PATTERN_C1_BODY_ATR_RATIO = 1.0
+
+# 第三根K线实体 / ATR 的最小倍数（反转确认：必须有力度）
+STAR_PATTERN_C3_BODY_ATR_RATIO = 0.8
+
+# 星线实体 / ATR 的最大倍数（动量衰竭：星线必须很小）
+STAR_PATTERN_C2_BODY_ATR_MAX_RATIO = 0.3
+
+# 星线动量衰竭阈值：星线收盘价 vs 第一根收盘价的偏离比例上限
+# 0.01 = 1%，即星线收盘在第一根收盘价 ±1% 以内，说明动量耗尽
+STAR_PATTERN_MOMENTUM_EXHAUSTION_RATIO = 0.01
+
+# 星线反转力度倍数：第三根实体 / 星线实体（越大反转越强）
+# 沿用 STAR_REVERSAL_RATIO = 2.0
 
 # ==================== 飞书消息推送配置 ====================
 # 是否启用飞书推送
