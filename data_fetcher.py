@@ -3,10 +3,15 @@
 数据获取模块（多交易所自动降级版）
 支持多个交易所数据源，主数据源失败时自动切换到下一个
 
-降级策略：
-1. 按 EXCHANGE_LIST 顺序尝试
-2. 每个交易所内重试 EXCHANGE_RETRY_COUNT 次
-3. 全部失败则返回 None，记录错误日志
+降级策略（三级）：
+1. 币安U本位永续合约（binanceusdm）- 优先
+2. 币安现货（binance）- 第一降级
+3. Gate.io（gate）- 最终降级
+
+通用机制：
+- 按 EXCHANGE_LIST 顺序尝试
+- 每个交易所内重试 EXCHANGE_RETRY_COUNT 次
+- 全部失败则返回 None，记录错误日志
 """
 import ccxt
 import pandas as pd
