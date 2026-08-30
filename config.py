@@ -34,8 +34,8 @@ TIMEFRAME_CONFIGS = {
         'label': '1小时',                    # 显示名称
         # 扫描方式：'cron' = 定时cron表达式，'fixed' = 固定时间点，'interval' = 间隔
         'scan_mode': 'cron',
-        # cron 表达式（每小时第55分钟扫描）
-        'cron_minute': 55,                   # 每小时的第几分钟
+        # cron 表达式（每小时第59分钟扫描，在1小时K线快结束时）
+        'cron_minute': 59,                   # 每小时的第几分钟
         # 盘前预备提醒（提前多少分钟）
         'pre_reminder_minutes': 0,           # 1小时周期不需要盘前提醒
         # 去重时间窗口（分钟）：同一交易对同一形态在此时间内只提醒一次
@@ -47,9 +47,11 @@ TIMEFRAME_CONFIGS = {
         'scan_mode': 'fixed',               # 固定时间点扫描
         # 每天固定扫描时间列表（24小时制，北京时区）
         'fixed_times': [
-            '08:00',   # 早盘提醒
-            '12:00',   # 午间提醒
-            '20:00',   # 晚间提醒
+            '08:06',   # 早盘提醒（整点后6分钟，等K线稳定）
+            '12:06',   # 午间提醒（整点后6分钟，等K线稳定）
+            '16:06',   # 下午提醒（整点后6分钟，等K线稳定）
+            '20:06',   # 晚间提醒（整点后6分钟，等K线稳定）
+            '00:06',   # 午夜提醒（整点后6分钟，等K线稳定）
         ],
         # 盘前预备提醒（提前多少分钟）
         'pre_reminder_minutes': 15,
@@ -217,6 +219,9 @@ FEISHU_WEBHOOK_URL = os.getenv('FEISHU_WEBHOOK_URL', '')
 
 # 飞书签名校验（如果机器人开启了签名校验，填写密钥）
 FEISHU_SIGN_SECRET = os.getenv('FEISHU_SIGN_SECRET', '')
+
+# 动量筛选系统专用飞书 Webhook（推送到独立群，与信号监控系统的飞书群分开）
+SCREENER_FEISHU_WEBHOOK_URL = os.getenv('SCREENER_FEISHU_WEBHOOK_URL', '')
 
 # 是否 @所有人
 FEISHU_AT_ALL = False

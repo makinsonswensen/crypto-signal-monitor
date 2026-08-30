@@ -31,7 +31,7 @@ def gen_feishu_sign(secret, timestamp):
     return sign
 
 
-def send_feishu_message(title, content, is_markdown=True, template='blue'):
+def send_feishu_message(title, content, is_markdown=True, template='blue', webhook_url=None):
     """
     发送飞书消息
 
@@ -40,12 +40,17 @@ def send_feishu_message(title, content, is_markdown=True, template='blue'):
         content: 消息内容
         is_markdown: 是否为markdown格式
         template: 卡片头部颜色 (blue, green, red, orange, purple)
+        webhook_url: 自定义Webhook地址（如动量筛选系统的独立群）。不传则用信号监控系统的默认Webhook
 
     Returns:
         bool: 是否发送成功
     """
-    if not config.ENABLE_FEISHU or not config.FEISHU_WEBHOOK_URL:
-        return False
+    if webhook_url:
+        url = webhook_url
+    else:
+        if not config.ENABLE_FEISHU or not config.FEISHU_WEBHOOK_URL:
+            return False
+        url = config.FEISHU_WEBHOOK_URL
 
     try:
         timestamp = str(int(time.time()))
@@ -88,7 +93,7 @@ def send_feishu_message(title, content, is_markdown=True, template='blue'):
             })
 
         resp = requests.post(
-            config.FEISHU_WEBHOOK_URL,
+            url,
             json=payload,
             timeout=10
         )
