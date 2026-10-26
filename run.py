@@ -15,6 +15,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import config
 from signal_monitor import get_monitor
+try:
+    from ma_monitor import get_ma_monitor
+except ImportError:
+    # MA 共振模块已迁移至 trading-cockpit/monitor/，
+    # 本仓库默认 ENABLE_MA_RESONANCE=False，缺失模块不影响 K 线形态扫描
+    get_ma_monitor = None
 from notifier import send_pre_scan_reminder
 
 
@@ -120,6 +126,24 @@ def setup_scheduler():
                 )
                 print(f"  - 扫描任务: {scan_time}")
 
+    # MA 多周期均线共振扫描（每根 5m K线收盘后执行）
+    if config.ENABLE_MA_RESONANCE:
+        if get_ma_monitor is None:
+            print("[警告] ENABLE_MA_RESONANCE=True 但 ma_monitor 模块缺失，跳过 MA 共振。"
+                  "该功能已迁移至 trading-cockpit/monitor/")
+        else:
+            ma_monitor = get_ma_monitor()
+            scheduler.add_job(
+                ma_monitor.scan_all,
+                CronTrigger(minute='*/5', second=config.MA_SCAN_SECOND),
+                id='ma_resonance_scan',
+                name='MA均线共振扫描',
+                misfire_grace_time=120
+            )
+            print(f"\n[MA共振周期] {' + '.join(config.MA_RESONANCE_TIMEFRAMES)}")
+            print(f"  - 扫描任务: 每 5 分钟的第 {config.MA_SCAN_SECOND} 秒"
+                  f"（对应 {'/'.join(config.MA_RESONANCE_TIMEFRAMES)} K线收盘后）")
+
     return scheduler
 
 
@@ -140,6 +164,11 @@ def print_banner():
     print(f"[监控交易对] {len(config.WATCHLIST)} 个")
     print(f"[启用周期] {len(config.ENABLED_TIMEFRAMES)} 个: {', '.join(config.ENABLED_TIMEFRAMES)}")
     print(f"[监控形态] {len(config.ENABLED_PATTERNS)} 种")
+    if config.ENABLE_MA_RESONANCE:
+        print(f"[MA均线共振] 启用 | 周期 {' + '.join(config.MA_RESONANCE_TIMEFRAMES)}"
+              f" | 均线 {'/'.join(str(p) for p in config.MA_PERIODS)}")
+    else:
+        print("[MA均线共振] 禁用")
     print(f"[飞书推送] {'启用' if config.ENABLE_FEISHU else '禁用'}")
     print(f"[桌面弹窗] {'启用' if config.ENABLE_DESKTOP_NOTIFY else '禁用'}")
     print(f"[Web仪表盘] {'启用' if config.ENABLE_WEB_DASHBOARD else '禁用'}")
@@ -169,6 +198,14 @@ def main():
             monitor.scan_all(timeframe)
         except Exception as e:
             print(f"[{tf_label}首次扫描异常] {e}")
+
+    # MA 共振首次判定（状态文件为空时会报告当前已成立的共振）
+    if config.ENABLE_MA_RESONANCE and get_ma_monitor is not None:
+        print("\n--- MA均线共振 ---")
+        try:
+            get_ma_monitor().scan_all()
+        except Exception as e:
+            print(f"[MA共振首次扫描异常] {e}")
 
     # 设置定时任务
     scheduler = setup_scheduler()

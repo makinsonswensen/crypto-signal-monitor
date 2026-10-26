@@ -86,7 +86,7 @@ class MultiExchangeFetcher:
         key = (exchange_id, symbol)
         self.failed_pairs[key] = time.time()
 
-    def fetch_ohlcv(self, symbol, timeframe='1h', limit=100):
+    def fetch_ohlcv(self, symbol, timeframe='1h', limit=100, since=None):
         """
         获取K线数据（带自动降级）
 
@@ -94,6 +94,7 @@ class MultiExchangeFetcher:
             symbol: 交易对（如 'BTC/USDT'）
             timeframe: K线周期
             limit: K线数量
+            since: 起始时间戳（毫秒），None 表示取最近 limit 根；回测分页时使用
 
         Returns:
             DataFrame or None: K线数据
@@ -124,7 +125,7 @@ class MultiExchangeFetcher:
             for attempt in range(config.EXCHANGE_RETRY_COUNT):
                 try:
                     ohlcv = exchange.fetch_ohlcv(
-                        mapped_symbol, timeframe=timeframe, limit=limit
+                        mapped_symbol, timeframe=timeframe, limit=limit, since=since
                     )
 
                     if ohlcv and len(ohlcv) > 0:

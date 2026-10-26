@@ -11,6 +11,7 @@ __pycache__/
 
 # 信号历史记录（运行时生成）
 signal_history.json
+ma_resonance_state.json
 
 # 筛选器运行时输出数据
 screener_*.json

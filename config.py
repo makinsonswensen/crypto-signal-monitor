@@ -249,3 +249,71 @@ SIGNAL_HISTORY_FILE = 'signal_history.json'
 
 # 最大历史记录条数
 MAX_HISTORY_SIGNALS = 1000
+
+# ==================== MA 均线多周期共振配置 ====================
+# 独立于K线形态识别系统：自带取数、判定与调度，不修改 TIMEFRAME_CONFIGS，
+# 因此不会影响现有形态扫描的行为。
+#
+# 判定口径（P = 已收盘K线收盘价，A = MA7，B = MA25，C = MA50）：
+#   A>B 且 P>A 且 B>C   -> L1 一级多头（1h=AA / 15m=BB / 5m=CC）
+#   A>B 且（P<A 或 B<C） -> L2 二级多头（1h=A  / 15m=B  / 5m=C）
+#   A<=B 且 P<A         -> S  空头
+#   A<=B 且 P>=A        -> 中性（不参与共振）
+#
+# 共振：三周期全部多头 -> 多头共振；三周期全部空头 -> 空头共振；其余不报警。
+# 推送：仅在共振状态发生跳变时推送（建立共振 / 共振解除）。
+
+# 是否启用 MA 共振监控
+# 注意：MA 共振已于 2026-10-26 迁移到 trading-cockpit/monitor/，
+# 为避免两个进程重复扫描同一批标的、重复推送飞书，此处关闭。
+# 如需在本项目恢复，改回 True 并停止驾驶舱仓库里的 monitor/scheduler.py。
+ENABLE_MA_RESONANCE = False
+
+# 均线周期：MA7 / MA25 / MA50
+MA_PERIODS = (7, 25, 50)
+
+# 参与共振判定的周期（顺序即消息中的展示顺序）
+MA_RESONANCE_TIMEFRAMES = ('1h', '15m', '5m')
+
+# 周期显示名称
+MA_TIMEFRAME_LABELS = {
+    '1h': '1小时',
+    '15m': '15分钟',
+    '5m': '5分钟',
+}
+
+# 各周期等级对应的字母标识（一级多头 / 二级多头）
+MA_GRADE_LETTERS = {
+    '1h': {'L1': 'AA', 'L2': 'A'},
+    '15m': {'L1': 'BB', 'L2': 'B'},
+    '5m': {'L1': 'CC', 'L2': 'C'},
+}
+
+# 每个周期获取多少根K线（MA50 至少需要 50 根，留出充足余量保证均线稳定）
+MA_KLIMIT = 120
+
+# 每根 5m K线收盘后的第几秒执行扫描（留出交易所结算时间）
+MA_SCAN_SECOND = 20
+
+# 状态确认次数：候选共振状态必须连续 N 次判定一致才正式切换
+# N=1 等价于不过滤（原始行为）；N=4 为回测选定值（30天5标的：降噪约50%，
+# 共振存续中位数由 5 根 5m（25分钟）提升到 12 根（1小时））
+MA_CONFIRM_SCANS = 4
+
+# 解除确认次数：共振解除（回到非共振）需连续 N 根 5m K线确认才推送。
+# 进出场不对称设计——进场要快、出场要慢。下跌趋势中 5m 价格短暂反弹到 MA7 上方
+# 会让 5m 变“中性”，但 1h/15m 趋势并未改变，12 根（1小时）可过滤这类回踩噪音。
+# 设为与 MA_CONFIRM_SCANS 相同则退化为对称确认。
+MA_RELEASE_CONFIRM_SCANS = 12
+
+# 共振状态快照文件（进程重启后恢复状态，避免重复报警）
+MA_STATE_FILE = 'ma_resonance_state.json'
+
+# 最大保留的共振事件条数
+MA_MAX_HISTORY = 500
+
+# MA 共振专用的飞书 Webhook（留空则使用默认 FEISHU_WEBHOOK_URL）
+MA_FEISHU_WEBHOOK_URL = os.getenv('MA_FEISHU_WEBHOOK_URL', '')
+
+# 是否对 MA 共振事件发送桌面弹窗
+MA_ENABLE_DESKTOP_NOTIFY = True
